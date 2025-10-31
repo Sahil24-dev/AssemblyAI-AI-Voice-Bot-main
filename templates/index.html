@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSAM Dental Clinic - AI Receptionist</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .clinic-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 1.8rem;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .chat-container {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e9ecef;
+        }
+
+        .message {
+            margin: 1rem 0;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        .message.user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.assistant {
+            background: #e9ecef;
+            color: #333;
+            margin-right: auto;
+            text-align: left;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            align-items: center;
+            margin: 1.5rem 0;
+        }
+
+        .mic-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 2rem;
+            color: white;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mic-button.inactive {
+            background: linear-gradient(45deg, #6c757d, #5a6268);
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .mic-button.listening {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        .mic-button.processing {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4); }
+            50% { box-shadow: 0 4px 25px rgba(220, 53, 69, 0.8); }
+            100% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4); }
+        }
+
+        .status {
+            margin: 1rem 0;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .status.inactive {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .status.listening {
+            background: #fff5f5;
+            color: #dc3545;
+        }
+
+        .status.processing {
+            background: #fffdf5;
+            color: #ffc107;
+        }
+
+        .text-input-container {
+            margin-top: 1rem;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .send-button {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            margin-top: 1.5rem;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .divider {
+            margin: 1rem 0;
+            height: 1px;
+            background: #dee2e6;
+        }
+
+        .audio-player {
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="clinic-logo">🦷</div>
+            <h1>RSAM Dental Clinic</h1>
+            <div class="subtitle">AI Receptionist - Aliya</div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="message assistant">
+                Thank you for calling the RSAM Dental Clinic. My name is Aliya, how may I help you today?
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="mic-button inactive" id="micButton">🎤</button>
+        </div>
+
+        <div class="status inactive" id="status">Click the microphone to start talking</div>
+
+        <div class="divider"></div>
+
+        <div class="text-input-container">
+            <input type="text" class="text-input" id="textInput" placeholder="Or type your message here...">
+            <button class="send-button" id="sendButton">Send Message</button>
+        </div>
+
+        <div class="footer">
+            Powered by AI Technology | AssemblyAI • Google Gemini • ElevenLabs
+        </div>
+    </div>
+
+    <script>
+        class DentalReceptionistUI {
+            constructor() {
+                this.isListening = false;
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                this.socket = io();
+                
+                this.micButton = document.getElementById('micButton');
+                this.status = document.getElementById('status');
+                this.chatContainer = document.getElementById('chatContainer');
+                this.textInput = document.getElementById('textInput');
+                this.sendButton = document.getElementById('sendButton');
+                
+                this.initializeEventListeners();
+                this.initializeSocketListeners();
+            }
+
+            initializeEventListeners() {
+                this.micButton.addEventListener('click', () => this.toggleListening());
+                this.sendButton.addEventListener('click', () => this.sendTextMessage());
+                this.textInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.sendTextMessage();
+                    }
+                });
+            }
+
+            initializeSocketListeners() {
+                this.socket.on('ai_response', (data) => {
+                    if (data.transcribed_text) {
+                        this.addMessage(data.transcribed_text, true);
+                    }
+                    this.addMessage(data.response, false);
+                    if (data.audio) {
+                        this.playAudio(data.audio);
+                    }
+                    this.updateStatus('Click the microphone to start talking', 'inactive');
+                    this.updateMicButton('inactive');
+                });
+
+                this.socket.on('transcription', (data) => {
+                    this.addMessage(data.text, true);
+                });
+
+                this.socket.on('error', (data) => {
+                    console.error('Socket error:', data.message);
+                    this.updateStatus('Error: ' + data.message, 'inactive');
+                    this.updateMicButton('inactive');
+                });
+
+                this.socket.on('status', (data) => {
+                    console.log('Status:', data.message);
+                });
+            }
+
+            addMessage(text, isUser = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+                messageDiv.textContent = text;
+                
+                this.chatContainer.appendChild(messageDiv);
+                this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+            }
+
+            updateStatus(message, className) {
+                this.status.textContent = message;
+                this.status.className = `status ${className}`;
+            }
+
+            updateMicButton(className) {
+                this.micButton.className = `mic-button ${className}`;
+            }
+
+            playAudio(audioBase64) {
+                const audio = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
+                audio.play().catch(e => console.error('Error playing audio:', e));
+            }
+
+            async toggleListening() {
+                if (this.isListening) {
+                    this.stopListening();
+                } else {
+                    await this.startListening();
+                }
+            }
+
+            async startListening() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    this.mediaRecorder = new MediaRecorder(stream);
+                    this.audioChunks = [];
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        this.audioChunks.push(event.data);
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.processAudio();
+                    };
+                    
+                    this.mediaRecorder.start();
+                    this.isListening = true;
+                    
+                    this.updateStatus('Listening... Click again to stop', 'listening');
+                    this.updateMicButton('listening');
+                    
+                } catch (error) {
+                    console.error('Error accessing microphone:', error);
+                    this.updateStatus('Error: Could not access microphone', 'inactive');
+                    alert('Could not access microphone. Please ensure you have given permission.');
+                }
+            }
+
+            stopListening() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                    this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                }
+                
+                this.isListening = false;
+                this.updateStatus('Processing your message...', 'processing');
+                this.updateMicButton('processing');
+            }
+
+            async processAudio() {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                const reader = new FileReader();
+                
+                reader.onload = () => {
+                    const base64Audio = reader.result.split(',')[1];
+                    this.socket.emit('audio_data', { audio: base64Audio });
+                };
+                
+                reader.readAsDataURL(audioBlob);
+            }
+
+            async sendTextMessage() {
+                const message = this.textInput.value.trim();
+                if (!message) return;
+                
+                this.addMessage(message, true);
+                this.textInput.value = '';
+                
+                this.updateStatus('Processing your message...', 'processing');
+                
+                this.socket.emit('text_message', { message: message });
+            }
+        }
+
+        // Initialize the UI when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new DentalReceptionistUI();
+        });
+    </script>
+</body>
+</html>
